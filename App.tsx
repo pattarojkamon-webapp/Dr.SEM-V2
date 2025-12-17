@@ -61,8 +61,7 @@ function App() {
     if (savedTheme) setTheme(savedTheme as Theme);
     
     // Check API Key safely
-    const apiKey = typeof process !== 'undefined' && process.env ? process.env.API_KEY : undefined;
-    if (!apiKey) checkApiKey();
+    checkApiKey();
   }, []);
 
   useEffect(() => {
@@ -142,9 +141,20 @@ function App() {
 
   const checkApiKey = async () => {
       try {
+        // First check if process.env.API_KEY is available (from build/env)
+        const envKey = typeof process !== 'undefined' && process.env ? process.env.API_KEY : undefined;
+        if (envKey) {
+            setApiKeyMissing(false);
+            return;
+        }
+
+        // If not, check if using AI Studio wrapper
         if ((window as any).aistudio && (window as any).aistudio.hasSelectedApiKey) {
             const hasKey = await (window as any).aistudio.hasSelectedApiKey();
             setApiKeyMissing(!hasKey);
+        } else {
+            // No key found in env and not in AI Studio
+            setApiKeyMissing(true);
         }
       } catch (e) {
           console.error("Error checking API key", e);
@@ -156,7 +166,7 @@ function App() {
           await (window as any).aistudio.openSelectKey();
           setApiKeyMissing(false);
       } else {
-          alert("API Key configuration is missing. If you are deploying to Vercel, please set the 'API_KEY' environment variable in your project settings.");
+          alert("API Key configuration is missing.\n\nIf you are running on Vercel/Localhost, please ensure 'API_KEY' is set in your environment variables (.env file or Vercel Project Settings).");
       }
   }
 
@@ -214,14 +224,19 @@ function App() {
 
     } catch (error) {
       console.error(error);
+      const errString = String(error);
       const errorMsg: Message = {
         id: (Date.now() + 1).toString(),
-        text: "Error connecting to Dr.SEM. Please check your API Key.",
+        text: "Error connecting to Dr.SEM. Please check your API Key settings.",
         sender: Sender.AI,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMsg]);
-      if (String(error).includes('API_KEY')) setApiKeyMissing(true);
+      
+      // Handle missing key or AI Studio specific error
+      if (errString.includes('API_KEY') || errString.includes('Requested entity was not found')) {
+          setApiKeyMissing(true);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -235,11 +250,17 @@ function App() {
   if (apiKeyMissing) {
       return (
           <div className="flex items-center justify-center h-screen bg-slate-900 text-white">
-              <div className="text-center p-8 bg-slate-800 rounded-xl shadow-2xl max-w-md">
+              <div className="text-center p-8 bg-slate-800 rounded-xl shadow-2xl max-w-md border border-slate-700">
                   <AlertTriangle className="mx-auto mb-4 text-yellow-400" size={48} />
                   <h1 className="text-2xl font-bold mb-4 font-serif">API Key Required</h1>
-                  <p className="mb-6 text-gray-300">To consult with Dr.SEM, please provide a valid Google GenAI API Key.</p>
-                  <button onClick={handleSelectKey} className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 px-6 rounded-full transition-colors">Select API Key</button>
+                  <p className="mb-6 text-gray-300 text-sm leading-relaxed">
+                      To consult with Dr.SEM, a valid Google GenAI API Key is required.
+                      <br/><br/>
+                      <span className="opacity-70 text-xs">If running on Vercel, please check your Environment Variables.</span>
+                  </p>
+                  <button onClick={handleSelectKey} className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 px-6 rounded-full transition-colors shadow-lg">
+                      Select / Check API Key
+                  </button>
               </div>
           </div>
       )

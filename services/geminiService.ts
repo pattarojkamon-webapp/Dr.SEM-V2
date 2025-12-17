@@ -1,11 +1,14 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { DR_SEM_SYSTEM_PROMPT } from '../constants';
 
 const getClient = () => {
-    // Safely check for process.env.API_KEY to avoid crashes in browsers/Vercel
+    // In Vite (with our config), process.env.API_KEY is replaced by the actual string value at build time.
+    // The typeof check protects against environments where process is completely missing (though we shim it).
     const apiKey = typeof process !== 'undefined' && process.env ? process.env.API_KEY : undefined;
+    
     if (!apiKey) {
-        throw new Error("API Key is missing. Please select an API key.");
+        throw new Error("API_KEY_MISSING: API Key is missing in environment variables.");
     }
     return new GoogleGenAI({ apiKey });
 };
